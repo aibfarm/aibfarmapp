@@ -1,0 +1,96 @@
+# .github/workflows/ios-simulator.yml
+name: iOS Simulator Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-simulator:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    
+    steps:
+    - name: ������ 检出代码
+      uses: actions/checkout@v4
+    
+    - name: ������ 安装 Flutter
+      run: |
+        git clone https://github.com/flutter/flutter.git -b stable --depth 1
+        echo "$GITHUB_WORKSPACE/flutter/bin" >> $GITHUB_PATH
+    
+    - name: ������ 配置 Flutter
+      run: |
+        flutter config --no-analytics
+        flutter --version
+        flutter doctor -v
+    
+    - name: ������ 获取依赖
+      run: flutter pub get
+    
+    - name: ������ 构建 iOS 模拟器版本
+      run: |
+        echo "������ 构建模拟器版本..."
+        flutter build ios --simulator --debug
+        
+        echo "������ 检查构建结果..."
+        ls -la build/ios/iphonesimulator/
+    
+    - name: ������ 创建模拟器 APP 包
+      run: |
+        echo "������ 准备模拟器应用包..."
+        
+        if [ -d "build/ios/iphonesimulator/Runner.app" ]; then
+          echo "✅ 找到模拟器应用"
+          
+          # 创建用于 Appetize 的 ZIP 包
+          mkdir -p simulator-build
+          cp -r build/ios/iphonesimulator/Runner.app simulator-build/
+          
+          # 打包为 ZIP (Appetize 格式)
+          cd simulator-build
+          zip -r ../aibfarm-simulator.zip Runner.app
+          cd ..
+          
+          echo "������ 模拟器包信息："
+          ls -la aibfarm-simulator.zip
+          du -sh aibfarm-simulator.zip
+          
+          # 验证应用架构
+          echo "������ 应用架构："
+          file simulator-build/Runner.app/Runner
+          
+        else
+          echo "❌ 模拟器应用构建失败"
+          echo "������ iphonesimulator 目录内容："
+          find build/ios/iphonesimulator/ -name "*.app" 2>/dev/null || echo "未找到 .app 文件"
+          exit 1
+        fi
+    
+    - name: ������ 上传模拟器包
+      uses: actions/upload-artifact@v4
+      with:
+        name: aibfarm-simulator-${{ github.run_number }}
+        path: "aibfarm-simulator.zip"
+        retention-days: 30
+    
+    - name: ������ 构建报告
+      run: |
+        echo "## ������ iOS 模拟器构建报告"
+        echo ""
+        if [ -f "aibfarm-simulator.zip" ]; then
+          echo "### ✅ 模拟器构建成功"
+          echo "- **类型**: iOS 模拟器应用"
+          echo "- **文件**: aibfarm-simulator.zip"
+          echo "- **大小**: $(du -h aibfarm-simulator.zip | cut -f1)"
+          echo "- **架构**: x86_64 (模拟器)"
+          echo "- **用途**: Appetize.io 在线测试"
+          echo ""
+          echo "### ������ 使用方法"
+          echo "1. 下载 'aibfarm-simulator-${{ github.run_number }}'"
+          echo "2. 解压得到 aibfarm-simulator.zip"
+          echo "3. 上传到 appetize.io 进行在线测试"
+          echo "4. 选择 iOS 设备和模拟器选项"
+        else
+          echo "### ❌ 模拟器构建失败"
+          echo "请查看构建日志了解详情"
+        fi
