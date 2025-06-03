@@ -1,0 +1,123 @@
+# .github/workflows/ios-git-flutter.yml
+name: iOS Build Git Flutter
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    
+    steps:
+    - name: í ½í³¥ æ£€å‡ºä»£ç 
+      uses: actions/checkout@v4
+    
+    - name: í ½í°¦ å®‰è£… Flutter (Git æ–¹å¼)
+      run: |
+        echo "í ½í´½ å…‹éš† Flutter ä»“åº“..."
+        git clone https://github.com/flutter/flutter.git -b stable --depth 1
+        
+        echo "í ½í´§ æ·»åŠ åˆ° PATH..."
+        echo "$GITHUB_WORKSPACE/flutter/bin" >> $GITHUB_PATH
+        
+        echo "âœ… Flutter å®‰è£…å®Œæˆ"
+    
+    - name: í ½í´ é…ç½® Flutter
+      run: |
+        export PATH="$GITHUB_WORKSPACE/flutter/bin:$PATH"
+        
+        echo "í ½í´§ Flutter é…ç½®..."
+        flutter config --no-analytics
+        flutter --version
+        
+        echo "í ¾í¹º Flutter è¯Šæ–­..."
+        flutter doctor -v
+    
+    - name: í ½í³¦ è·å–é¡¹ç›®ä¾èµ–
+      run: |
+        export PATH="$GITHUB_WORKSPACE/flutter/bin:$PATH"
+        
+        echo "í ½í³‹ å½“å‰ç›®å½•å†…å®¹:"
+        ls -la
+        
+        echo "í ½í³¦ å®‰è£…ä¾èµ–..."
+        flutter pub get
+        
+        echo "âœ… ä¾èµ–å®‰è£…å®Œæˆ"
+    
+    - name: í ½í´ æ£€æŸ¥é¡¹ç›®ç»“æ„
+      run: |
+        echo "í ½í³‚ é¡¹ç›®ç»“æ„:"
+        find . -name "*.dart" -o -name "pubspec.yaml" -o -name "*.pbxproj" | head -20
+        
+        echo "í ½í³± iOS ç›®å½•:"
+        ls -la ios/ || echo "âŒ iOS ç›®å½•ä¸å­˜åœ¨"
+    
+    - name: í ¼í½ æ„å»º iOS åº”ç”¨
+      run: |
+        export PATH="$GITHUB_WORKSPACE/flutter/bin:$PATH"
+        
+        echo "í ½í´¨ å¼€å§‹æ„å»º iOS..."
+        flutter build ios --release --no-codesign --verbose
+        
+        echo "í ½í´ æ£€æŸ¥æ„å»ºç»“æœ..."
+        ls -la build/ios/iphoneos/ || echo "âŒ æ„å»ºç›®å½•ä¸å­˜åœ¨"
+    
+    - name: í ½í³¦ åˆ›å»º IPA åŒ…
+      run: |
+        if [ -d "build/ios/iphoneos/Runner.app" ]; then
+          echo "í ½í³¦ åˆ›å»º IPA åŒ…..."
+          
+          # åˆ›å»º Payload ç›®å½•
+          mkdir -p Payload
+          
+          # å¤åˆ¶åº”ç”¨
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          
+          # åˆ›å»º IPA
+          zip -r aibfarm-app.ipa Payload
+          
+          echo "âœ… IPA åˆ›å»ºæˆåŠŸ:"
+          ls -la *.ipa
+          du -sh *.ipa
+          
+          # æ˜¾ç¤ºåº”ç”¨ä¿¡æ¯
+          echo "í ½í³± åº”ç”¨ä¿¡æ¯:"
+          file Payload/Runner.app/Runner
+          
+        else
+          echo "âŒ Runner.app ä¸å­˜åœ¨ï¼Œæ— æ³•åˆ›å»º IPA"
+          echo "í ½í³‚ æ„å»ºç›®å½•å†…å®¹ï¼š"
+          find build/ -name "*.app" 2>/dev/null || echo "æœªæ‰¾åˆ° .app æ–‡ä»¶"
+          exit 1
+        fi
+    
+    - name: í ½í³± ä¸Šä¼  IPA æ–‡ä»¶
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: aibfarm-ios-app-${{ github.run_number }}
+        path: "*.ipa"
+        retention-days: 30
+    
+    - name: í ½í³Š æ„å»ºæŠ¥å‘Š
+      if: always()
+      run: |
+        echo "## í ½í³± iOS æ„å»ºæŠ¥å‘Š"
+        echo ""
+        if [ -f "aibfarm-app.ipa" ]; then
+          echo "### âœ… æ„å»ºæˆåŠŸ"
+          echo "- **åº”ç”¨**: AibFarm iOS App"
+          echo "- **æ–‡ä»¶**: aibfarm-app.ipa"
+          echo "- **å¤§å°**: $(du -h *.ipa | cut -f1)"
+          echo "- **çŠ¶æ€**: æœªç­¾å (å¼€å‘æµ‹è¯•)"
+          echo ""
+          echo "### í ½í³¥ ä¸‹è½½æ–¹å¼"
+          echo "1. åœ¨æ­¤é¡µé¢åº•éƒ¨æ‰¾åˆ° 'Artifacts'"
+          echo "2. ä¸‹è½½ 'aibfarm-ios-app-${{ github.run_number }}'"
+          echo "3. è§£å‹å¾—åˆ° .ipa æ–‡ä»¶"
+        else
+          echo "### âŒ æ„å»ºå¤±è´¥"
+          echo "è¯·æŸ¥çœ‹ä¸Šæ–¹æ—¥å¿—äº†è§£å¤±è´¥åŸå› "
+        fi
