@@ -1,0 +1,88 @@
+# .github/workflows/ios-ultra-simple.yml
+name: iOS Ultra Simple Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: í ½í³¥ æ£€å‡ºä»£ç 
+      uses: actions/checkout@v4
+    
+    - name: í ½í°¦ æ‰‹åŠ¨å®‰è£… Flutter
+      run: |
+        echo "í ½í´½ ä¸‹è½½ Flutter..."
+        curl -L https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_arm64_3.19.6-stable.tar.xz -o flutter.tar.xz
+        
+        echo "í ½í³¦ è§£å‹ Flutter..."
+        tar xf flutter.tar.xz
+        
+        echo "í ½í´§ è®¾ç½®ç¯å¢ƒå˜é‡..."
+        echo "$GITHUB_WORKSPACE/flutter/bin" >> $GITHUB_PATH
+        
+        echo "âœ… Flutter å®‰è£…å®Œæˆ"
+    
+    - name: í ½í´ éªŒè¯ Flutter
+      run: |
+        flutter --version
+        flutter doctor -v
+    
+    - name: í ½í³¦ è·å–ä¾èµ–
+      run: flutter pub get
+    
+    - name: í ¼í½ æ„å»º iOS
+      run: |
+        echo "í ½í´¨ å¼€å§‹æ„å»º iOS..."
+        flutter build ios --release --no-codesign
+        
+        echo "í ½í´ æ£€æŸ¥æ„å»ºç»“æœ..."
+        ls -la build/ios/iphoneos/
+    
+    - name: í ½í³¦ åˆ›å»º IPA
+      run: |
+        echo "í ½í³¦ åˆ›å»º Payload ç›®å½•..."
+        mkdir -p Payload
+        
+        echo "í ½í³‹ å¤åˆ¶åº”ç”¨åˆ° Payload..."
+        cp -r build/ios/iphoneos/Runner.app Payload/
+        
+        echo "í ½í·œï¸ å‹ç¼©æˆ IPA..."
+        zip -r aibfarm-app.ipa Payload
+        
+        echo "âœ… IPA åˆ›å»ºå®Œæˆ"
+        ls -la *.ipa
+        du -h *.ipa
+    
+    - name: í ½í³± ä¸Šä¼  IPA æ–‡ä»¶
+      uses: actions/upload-artifact@v4
+      with:
+        name: aibfarm-ios-app-${{ github.run_number }}
+        path: "*.ipa"
+        retention-days: 30
+    
+    - name: í ½í³Š æ„å»ºæ€»ç»“
+      run: |
+        echo "## í ¼í¾‰ iOS æ„å»ºæˆåŠŸå®Œæˆï¼"
+        echo ""
+        echo "### í ½í³‹ æ„å»ºä¿¡æ¯"
+        echo "- **åº”ç”¨åç§°**: AibFarm App"
+        echo "- **å¹³å°**: iOS"
+        echo "- **æ¶æ„**: ARM64"
+        echo "- **çŠ¶æ€**: æœªç­¾åï¼ˆå¼€å‘æµ‹è¯•ç”¨ï¼‰"
+        echo "- **æ–‡ä»¶å**: aibfarm-app.ipa"
+        echo "- **æ–‡ä»¶å¤§å°**: $(du -h *.ipa | cut -f1)"
+        echo "- **æ„å»ºæ—¶é—´**: $(date)"
+        echo ""
+        echo "### í ½í³¥ ä¸‹è½½è¯´æ˜"
+        echo "1. åœ¨ GitHub Actions é¡µé¢æ‰¾åˆ° 'Artifacts' éƒ¨åˆ†"
+        echo "2. ä¸‹è½½ 'aibfarm-ios-app-${{ github.run_number }}'"
+        echo "3. è§£å‹è·å¾— aibfarm-app.ipa æ–‡ä»¶"
+        echo ""
+        echo "### âš ï¸ é‡è¦æç¤º"
+        echo "- æ­¤ IPA æ–‡ä»¶æœªç­¾åï¼Œä»…ç”¨äºå¼€å‘æµ‹è¯•"
+        echo "- è¦å®‰è£…åˆ°çœŸå®è®¾å¤‡éœ€è¦ Apple å¼€å‘è€…è¯ä¹¦"
+        echo "- å¯ä»¥åœ¨ iOS æ¨¡æ‹Ÿå™¨ä¸­æµ‹è¯•"
